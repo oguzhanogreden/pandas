@@ -66,7 +66,6 @@ from pandas.core.groupby import base, grouper
 from pandas.core.indexes.api import Index, MultiIndex, ensure_index
 from pandas.core.series import Series
 from pandas.core.sorting import (
-    compress_group_index,
     decons_obs_group_ids,
     get_flattened_list,
     get_group_index,
@@ -109,7 +108,6 @@ class BaseGrouper:
     ):
         assert isinstance(axis, Index), axis
 
-        self._filter_empty_groups = self.compressed = len(groupings) != 1
         self.axis = axis
         self._groupings: List[grouper.Grouping] = list(groupings)
         self.sort = sort
@@ -316,7 +314,7 @@ class BaseGrouper:
         all_codes = self.codes
         if len(all_codes) > 1:
             group_index = get_group_index(all_codes, self.shape, sort=True, xnull=True)
-            return compress_group_index(group_index, sort=self.sort)
+            return group_index, np.arange(max(group_index))
 
         ping = self.groupings[0]
         return ping.codes, np.arange(len(ping.group_index))
@@ -334,18 +332,16 @@ class BaseGrouper:
 
     @cache_readonly
     def result_index(self) -> Index:
-        if not self.compressed and len(self.groupings) == 1:
+        if len(self.groupings) == 1:
             return self.groupings[0].result_index.rename(self.names[0])
 
-        codes = self.reconstructed_codes
         levels = [ping.result_index for ping in self.groupings]
-        return MultiIndex(
-            levels=levels, codes=codes, verify_integrity=False, names=self.names
-        )
+
+        return MultiIndex.from_product(levels, names=self.names)
 
     @final
     def get_group_levels(self) -> List[Index]:
-        if not self.compressed and len(self.groupings) == 1:
+        if len(self.groupings) == 1:
             return [self.groupings[0].result_index]
 
         name_list = []
@@ -641,9 +637,9 @@ class BaseGrouper:
                 result = result.astype("float64")
                 result[mask] = np.nan
 
-        if kind == "aggregate" and self._filter_empty_groups and not counts.all():
-            assert result.ndim != 2
-            result = result[counts > 0]
+        # if kind == "aggregate" and self._filter_empty_groups and not counts.all():
+        #     assert result.ndim != 2
+        #     result = result[counts > 0]
 
         if vdim == 1 and arity == 1:
             result = result[:, 0]
@@ -795,13 +791,13 @@ class BinGrouper(BaseGrouper):
         self,
         bins,
         binlabels,
-        filter_empty: bool = False,
+        # filter_empty: bool = False,
         mutated: bool = False,
         indexer=None,
     ):
         self.bins = ensure_int64(bins)
         self.binlabels = ensure_index(binlabels)
-        self._filter_empty_groups = filter_empty
+        # self._filter_empty_groups = filter_empty
         self.mutated = mutated
         self.indexer = indexer
 
