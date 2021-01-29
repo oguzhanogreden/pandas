@@ -637,10 +637,6 @@ class BaseGrouper:
                 result = result.astype("float64")
                 result[mask] = np.nan
 
-        # if kind == "aggregate" and self._filter_empty_groups and not counts.all():
-        #     assert result.ndim != 2
-        #     result = result[counts > 0]
-
         if vdim == 1 and arity == 1:
             result = result[:, 0]
 
@@ -791,13 +787,11 @@ class BinGrouper(BaseGrouper):
         self,
         bins,
         binlabels,
-        # filter_empty: bool = False,
         mutated: bool = False,
         indexer=None,
     ):
         self.bins = ensure_int64(bins)
         self.binlabels = ensure_index(binlabels)
-        # self._filter_empty_groups = filter_empty
         self.mutated = mutated
         self.indexer = indexer
 
